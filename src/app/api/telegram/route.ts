@@ -8,6 +8,7 @@ const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER;
 const USER_PHONE = process.env.USER_PHONE;
+const GROQ_KEY = process.env.GROQ_API_KEY;
 
 interface Task {
   id: string;
@@ -45,6 +46,48 @@ function getUser(chatId: number): UserData {
 
 function pick(arr: string[]): string {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+async function askAI(message: string, userName: string): Promise<string> {
+  if (!GROQ_KEY) return "AI is not configured yet! /help for commands. 💪";
+
+  const shortCommands = ["/start", "/help", "/schedule", "/done", "/streak", "/motivate", "/sms", "/listsms"];
+  const isCommand = shortCommands.some(c => message.startsWith(c)) || message.startsWith("/add") || message.startsWith("/remove");
+
+  if (isCommand) return "";
+
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content: `You are Jarvis, ${userName}'s personal AI assistant and motivational buddy. You live in Telegram. Be friendly, concise (1-3 sentences max), warm, and energetic. You can answer ANY question - general knowledge, coding, health, life advice, etc. You also help with tasks and motivation. If someone asks to add a task, tell them to use /add [task] [time]. Don't use markdown tables, keep it simple text. Don't be overly long.`,
+          },
+          { role: "user", content: message },
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.choices && data.choices[0]) {
+      const content = data.choices[0].message.content || "";
+      const clean = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      if (clean.length > 0) return clean;
+    }
+    return "Hmm, I'm not sure about that! Try asking something else or use /help 💪";
+  } catch (e) {
+    console.error("AI failed:", e);
+    return "AI temporarily busy! Try again in a sec 🧠";
+  }
 }
 
 function getEmoji(name: string): string {
@@ -555,8 +598,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      const reply = smartReply(text, user);
-      await sendTelegram(chatId, reply);
+      const reply = await askAI(text, user.nickname || "KD");
+      if (reply) {
+        await sendTelegram(chatId, reply);
+      } else {
+        const templateReply = smartReply(text, user);
+        await sendTelegram(chatId, templateReply);
+      }
     }
 
     return NextResponse.json({ ok: true });
