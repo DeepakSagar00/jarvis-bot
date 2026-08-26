@@ -86,75 +86,205 @@ async function sendSMS(body: string): Promise<void> {
   }
 }
 
+function pick(arr: string[]): string {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function smartReply(message: string): string {
   const m = message.toLowerCase().trim();
 
-  const greetings = [
-    "Hey buddy! 💪 Ready to crush today?",
-    "What's up, champion! 🏆",
-    "Hey! Good to see you! What's the plan? 🔥",
-    "Yo! I'm here and ready. What do you need? 💪",
-  ];
-
-  const tired = [
-    "I get it, but you're STRONGER than you think! 💪 Take a deep breath and keep going!",
-    "Tired is just a feeling, not a fact. Your future self is counting on you! 🚀",
-    "Rest if you need to, but don't quit. You started this for a REASON! 🔥",
-  ];
-
-  const motivation = [
-    "You started this journey for a REASON! Every rep, every early morning - it's building YOUR success! 🚀",
-    "Champions aren't made in comfort zones. You're here, you're fighting. That's what matters! 💪",
-    "The pain of discipline is nothing compared to the pain of regret. Keep PUSHING! 🔥",
-    "You didn't come this far to only come this far. Keep GOING! 🏆",
-    "Small steps every day. That's how you change your life. You're doing GREAT! ⭐",
-  ];
-
-  const thanks = [
-    "Anytime, buddy! That's what I'm here for! 💪",
-    "You're welcome, champ! Keep being awesome! 🏆",
-  ];
-
-  const bye = [
-    "See you later, champion! Have an epic day! 🚀",
-    "Catch you later! Stay focused and stay strong! 💪",
-  ];
-
-  if (m.includes("hi") || m.includes("hey") || m.includes("hello") || m === "yo" || m === "sup") {
-    return greetings[Math.floor(Math.random() * greetings.length)];
-  }
-  if (m.includes("tired") || m.includes("lazy") || m.includes("not feeling") || m.includes("don't want")) {
-    return tired[Math.floor(Math.random() * tired.length)];
-  }
-  if (m.includes("motivate") || m.includes("inspire") || m.includes("encourage") || m.includes("pump")) {
-    return motivation[Math.floor(Math.random() * motivation.length)];
-  }
-  if (m.includes("thank") || m.includes("thanks") || m.includes("thx")) {
-    return thanks[Math.floor(Math.random() * thanks.length)];
-  }
-  if (m.includes("bye") || m.includes("good night") || m.includes("gn") || m.includes("see you")) {
-    return bye[Math.floor(Math.random() * bye.length)];
-  }
-  if (m.includes("how are you") || m.includes("how r u") || m.includes("what's up")) {
-    return "I'm doing great, buddy! More importantly, how are YOU? Ready to dominate today? 💪🔥";
-  }
-  if (m.includes("good morning") || m.includes("gm")) {
-    return "Good morning, CHAMPION! ☀️ Rise and grind! Today is YOUR day! 🏆";
-  }
-  if (m.includes("good night") || m.includes("gn")) {
-    return "Good night, king! 👑 Rest well. Tomorrow we go HARDER! 💪";
-  }
-  if (m.includes("who are you") || m.includes("what are you")) {
-    return "I'm Jarvis, your personal accountability buddy! I help you manage tasks, track streaks, and stay motivated! 🤖💪";
-  }
-  if (m.includes("sad") || m.includes("depressed") || m.includes("upset")) {
-    return "Hey, it's okay to feel down sometimes. But remember - you're not alone, and this too shall pass. You're doing better than you think! 💪❤️";
-  }
-  if (m.includes("can you") || m.includes("what can")) {
-    return "I can:\n📝 Add tasks: /add gym 5:30\n📋 View schedule: /schedule\n🔥 Track streaks: /streak\n💪 Motivate you anytime!\n\nJust talk to me! 💬";
+  if (m.includes("call me") || m.startsWith("call me ") || m.match(/^call me \w+/)) {
+    const name = message.replace(/.*call me\s*/i, "").trim();
+    if (name) return `Got it, ${name}! 🤝 That's a solid name! I'll remember you as ${name}. Now, what can I do for you? 💪`;
+    return "I'd love to, but you gotta tell me the name first! 😄 Call me what?";
   }
 
-  return "Hey! I hear you! 💪 I'm here to help with tasks and motivation. Try:\n/add gym 5:30\n/schedule\n/streak\n\nOr just chat with me! 😊";
+  if (m.match(/^(hi|hey|hello|yo|sup|hola|hiya|howdy)/) || m === "hi" || m === "hey" || m === "hello" || m === "yo" || m === "sup") {
+    return pick([
+      "Hey! What's up! 💪",
+      "Yo! I'm here and ready. What's the plan? 🔥",
+      "Hey champion! What can I do for you? 🏆",
+      "Hey! Good to see you! Ready to crush it? 💪",
+    ]);
+  }
+
+  if (m.includes("good morning") || m === "gm") {
+    return pick([
+      "Good morning, CHAMPION! ☀️ Rise and grind! Today is YOUR day! 🏆",
+      "Morning! Time to be GREAT! What's on the agenda? 🔥",
+      "GM! The world is yours today. Let's GO! 💪",
+    ]);
+  }
+
+  if (m.includes("good night") || m === "gn") {
+    return pick([
+      "Good night, king! 👑 Rest well. Tomorrow we go HARDER! 💪",
+      "Sleep well! You earned it. Tomorrow we're back at it! 🌙",
+      "Night! Dream big. Tomorrow we make it happen! 🏆",
+    ]);
+  }
+
+  if (m.includes("good afternoon") || m.includes("good evening")) {
+    return pick([
+      "Hey! Hope you're having a great day so far! 💪",
+      "Good to hear from you! How's the day going? 🏆",
+    ]);
+  }
+
+  if (m.match(/how are you|how r u|how u doing|how's it going|what's up with you/)) {
+    return pick([
+      "I'm running at 100%! More importantly, how are YOU? 💪",
+      "All good on my end! Ready to help you conquer the day! What's up? 🔥",
+      "I'm great! Living my best bot life 😄 How about you?",
+    ]);
+  }
+
+  if (m.includes("call me kd") || m.includes("call me kd") || m.match(/call me kd/)) {
+    return "Got it, KD! 🤝 That's a strong name! What's the plan, KD? 💪🔥";
+  }
+
+  if (m.match(/who are you|what are you|what's your name|tell me about yourself/)) {
+    return pick([
+      "I'm Jarvis - your personal accountability buddy! I help you stay on track with tasks, streaks, and motivation! 🤖💪",
+      "Name's Jarvis! Think of me as your 24/7 life coach in your pocket. Tasks, reminders, motivation - I got you! 💪",
+    ]);
+  }
+
+  if (m.includes("tired") || m.includes("lazy") || m.includes("not feeling") || m.includes("don't want") || m.includes("no motivation")) {
+    return pick([
+      "I get it, but you're STRONGER than you think! 💪 Take a deep breath and keep going!",
+      "Tired is just a feeling, not a fact. Your future self is counting on you! 🚀",
+      "Rest if you need to, but don't quit. You started this for a REASON! 🔥",
+      "Even champions have off days. Take a breath, reset, and come back swinging! 💪",
+    ]);
+  }
+
+  if (m.match(/motivat|inspire|encourage|pump me|pep talk/)) {
+    return pick([
+      "You started this for a REASON! Every step counts! 🚀",
+      "Champions are built in the dark, when nobody's watching. Keep grinding! 💪",
+      "Your only limit is the one you set yourself. BREAK IT! 🔥",
+      "One day you'll tell your story of how you overcame what you went through. Keep going! 🏆",
+      "You didn't come this far to only come this far. Keep GOING! 💪",
+    ]);
+  }
+
+  if (m.match(/thank|thanks|thx|appreciate/)) {
+    return pick([
+      "Anytime! That's what I'm here for! 💪",
+      "You're welcome, champ! Keep being awesome! 🏆",
+      "No problem! Now go crush it! 🔥",
+    ]);
+  }
+
+  if (m.match(/bye|goodbye|see ya|see you|talk later|gotta go|gtg/)) {
+    return pick([
+      "See you later, champion! Have an epic day! 🚀",
+      "Catch you later! Stay focused and stay strong! 💪",
+      "Bye! Remember - you're unstoppable! 🏆",
+    ]);
+  }
+
+  if (m.match(/sad|depressed|upset|feeling down|unhappy|lonely/)) {
+    return pick([
+      "Hey, it's okay to feel down sometimes. But remember - you're not alone, and this too shall pass. 💪❤️",
+      "I'm here for you, KD. Tomorrow is a new day with new chances. You got this! 💪",
+      "Tough times don't last, but tough people do. And YOU are TOUGH! 🔥",
+    ]);
+  }
+
+  if (m.match(/joke|funny|make me laugh|humor/)) {
+    return pick([
+      "Why did the gym close down? It just didn't work out! 😂💪",
+      "I told my computer I needed a break. Now it won't stop sending me vacation ads! 😄",
+      "Why don't scientists trust atoms? Because they make up everything! 😂",
+      "What do you call a fake noodle? An im-pasta! 🍝😄",
+    ]);
+  }
+
+  if (m.match(/weather|temperature|rain|hot|cold/)) {
+    return "I can't check the weather (I'm just a bot in a server 😅), but whatever it is - weather doesn't stop champions! Go get it! 💪🔥";
+  }
+
+  if (m.match(/hungry|eat|food|lunch|dinner|breakfast|snack/)) {
+    return pick([
+      "Fuel up, champ! You can't perform on an empty tank! 🍽️💪",
+      "Eat well, train well! What are you having? 🍽️",
+      "Food is fuel! Make it count and get back to being awesome! 💪",
+    ]);
+  }
+
+  if (m.match(/sleep|nap|bed|rest/)) {
+    return pick([
+      "Rest is important! But don't oversleep - we've got things to do! 😴💪",
+      "Good rest = good performance. But remember, 4:30 AM comes early! ⏰",
+    ]);
+  }
+
+  if (m.match(/love|hate|like|miss|feel about/)) {
+    return pick([
+      "I'm just a bot, but I care about your progress! 💪 That counts for something, right? 😄",
+      "Spread love, stay focused, and keep growing! You're doing amazing! 💪❤️",
+    ]);
+  }
+
+  if (m.match(/can you|what can|help|features|commands/)) {
+    return "Here's what I can do:\n\n📝 Add task: /add gym 5:30\n📋 Schedule: /schedule\n✅ Done: /done\n🔥 Streak: /streak\n💪 Motivate: /motivate\n🗑️ Remove: /remove gym\n📱 /sms - test SMS\n\nOr just chat with me! 💬";
+  }
+
+  if (m.match(/work|office|meeting|meeting|deadline|boss/)) {
+    return pick([
+      "Work hard, but also work smart! You got this! 💼💪",
+      "Every meeting, every deadline - it's building YOUR career. Crush it! 🏆",
+    ]);
+  }
+
+  if (m.match(/gym|workout|exercise|push|pull|leg day|abs/)) {
+    return pick([
+      "Let's GO! Time to tear it up! 💪🏋️",
+      "No excuses! Every rep brings you closer to your goal! 🔥",
+      "Beast mode! You're stronger than yesterday! 🏋️💪",
+      "Remember why you started. Now GO HARD! 💪🔥",
+    ]);
+  }
+
+  if (m.match(/study|class|exam|learn|read|book/)) {
+    return pick([
+      "Knowledge is POWER! Keep learning, keep growing! 📚💪",
+      "Study hard today, shine tomorrow! You got this! 🏆",
+      "Every page you read is an investment in yourself! 📚🔥",
+    ]);
+  }
+
+  if (m.match(/streak|consistency|discipline|habit/)) {
+    return pick([
+      "Consistency is KEY! Every day you show up, you win! 🔥",
+      "Discipline beats motivation. And you're building it every single day! 💪",
+      "One day at a time. One task at a time. You're doing GREAT! 🏆",
+    ]);
+  }
+
+  if (m.match(/ok|okay|k|alright|cool|nice|great|awesome|perfect|sure|yes|yeah|yep|nah|no/)) {
+    return pick([
+      "👍 Cool! Let me know if you need anything!",
+      "Nice! I'm here whenever you need me! 💪",
+      "Awesome! What's next? 🔥",
+    ]);
+  }
+
+  if (m.match(/kd|deepak|sagar/)) {
+    return pick([
+      "That's my guy! What's up, KD? 💪🔥",
+      "KD in the house! What do you need? 🏆",
+    ]);
+  }
+
+  return pick([
+    "I hear you, KD! Need help with tasks? /add [task] [time]\nOr just chat! I'm all ears! 💬💪",
+    "Got it! Anything specific you need? I can manage tasks, track streaks, or just vibe! 💪",
+    "Interesting! Tell me more, or try:\n/add gym 5:30\n/schedule\n/streak 🚀",
+    "I'm listening! What's on your mind? 💪",
+  ]);
 }
 
 function parseAddCommand(text: string): { name: string; time: string } | null {
@@ -229,12 +359,12 @@ export async function POST(request: NextRequest) {
       process.env.USER_CHAT_ID = String(chatId);
 
       if (text === "/start") {
-        await sendTelegram(chatId, "Hey! 👋 I'm Jarvis!\n\n💬 Talk to me naturally!\n📝 /add gym 5:30\n📋 /schedule\n🔥 /streak\n💪 /motivate\n\nJust chat like a friend!");
+        await sendTelegram(chatId, "Hey! 👋 I'm Jarvis!\n\n💬 Talk to me naturally!\n📝 /add gym 5:30\n📋 /schedule\n🔥 /streak\n💪 /motivate\n📱 /sms - test SMS\n\nJust chat like a friend! You can call me anything! 😊");
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/help") {
-        await sendTelegram(chatId, "📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n\nOr just chat! 💬");
+        await sendTelegram(chatId, "📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n💪 /motivate\n📱 /sms - test SMS\n📱 /listsms - SMS all tasks\n\nOr just chat! Call me anything! 💬");
         return NextResponse.json({ ok: true });
       }
 
@@ -272,6 +402,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      if (text === "/sms") {
+        await sendSMS("Hey KD! This is Jarvis checking in. You're doing GREAT! Keep going! 💪🔥");
+        await sendTelegram(chatId, "📱 SMS sent to your phone!");
+        return NextResponse.json({ ok: true });
+      }
+
+      if (text === "/listsms") {
+        if (tasks.length === 0) {
+          await sendTelegram(chatId, "No tasks to SMS! Add some with /add gym 5:30");
+        } else {
+          for (const task of tasks) {
+            await sendSMS(`${task.emoji} Reminder: ${task.name}`);
+          }
+          await sendTelegram(chatId, `📱 Sent ${tasks.length} SMS reminders to your phone!`);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
       if (text.startsWith("/add")) {
         const parsed = parseAddCommand(text);
         if (!parsed) {
@@ -280,6 +428,7 @@ export async function POST(request: NextRequest) {
         }
         const task = addTask(parsed.name, parsed.time);
         await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${task.time}! 💪`);
+        await sendSMS(`${task.emoji} Reminder: ${task.name} at ${task.time}`);
         return NextResponse.json({ ok: true });
       }
 
