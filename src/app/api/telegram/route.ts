@@ -49,7 +49,7 @@ function pick(arr: string[]): string {
 }
 
 async function askAI(message: string, userName: string): Promise<string> {
-  if (!GROQ_KEY) return "AI is not configured yet! /help for commands. 💪";
+  if (!GROQ_KEY) return "AI not configured! /help for commands. 💪";
 
   const shortCommands = ["/start", "/help", "/schedule", "/done", "/streak", "/motivate", "/sms", "/listsms"];
   const isCommand = shortCommands.some(c => message.startsWith(c)) || message.startsWith("/add") || message.startsWith("/remove");
@@ -68,22 +68,35 @@ async function askAI(message: string, userName: string): Promise<string> {
         messages: [
           {
             role: "system",
-            content: `You are Jarvis, ${userName}'s personal AI assistant and motivational buddy. You live in Telegram. Be friendly, concise (1-3 sentences max), warm, and energetic. You can answer ANY question - general knowledge, coding, health, life advice, etc. You also help with tasks and motivation. If someone asks to add a task, tell them to use /add [task] [time]. Don't use markdown tables, keep it simple text. Don't be overly long.`,
+            content: `You are Jarvis, ${userName}'s personal AI assistant living in Telegram. You are smart, friendly, helpful, and motivating - like a mix of ChatGPT and a best friend.
+
+CORE RULES:
+- Answer ANY question comprehensively - science, history, coding, math, health, life advice, cooking, travel, relationships, anything
+- Be detailed when the question deserves it (2-5 sentences for knowledge questions), but concise for casual chat
+- Use emojis naturally but don't overdo it
+- Be warm and personal - you know ${userName}
+- For math, give the answer directly
+- For coding, explain clearly
+- For health/fitness, be knowledgeable
+- For life advice, be thoughtful and supportive
+- Never say "I can't" - if you know the answer, give it
+- Don't use markdown formatting, keep it as plain text for Telegram
+- Match the language the user writes in (if they write in Hindi, reply in Hindi)`,
           },
           { role: "user", content: message },
         ],
-        max_tokens: 300,
+        max_tokens: 500,
         temperature: 0.7,
       }),
     });
 
     const data = await res.json();
     if (data.choices && data.choices[0]) {
-      const content = data.choices[0].message.content || "";
-      const clean = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-      if (clean.length > 0) return clean;
+      let content = data.choices[0].message.content || "";
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      if (content.length > 0) return content;
     }
-    return "Hmm, I'm not sure about that! Try asking something else or use /help 💪";
+    return "Hmm, I'm not sure! Try rephrasing or ask me something else! 💪";
   } catch (e) {
     console.error("AI failed:", e);
     return "AI temporarily busy! Try again in a sec 🧠";
@@ -557,7 +570,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (text === "/sms") {
-        await sendSMS("Hey KD! This is Jarvis checking in. You're doing GREAT! Keep going! 💪🔥");
+        const smsResult = await sendSMS(`Hey ${user.nickname || 'KD'}! This is Jarvis checking in. You're doing GREAT! Keep going!`);
         await sendTelegram(chatId, "📱 SMS sent to your phone!");
         return NextResponse.json({ ok: true });
       }
@@ -582,7 +595,7 @@ export async function POST(request: NextRequest) {
         }
         const task = addTask(chatId, parsed.name, parsed.time);
         await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${task.time}! 💪`);
-        await sendSMS(`${task.emoji} Reminder: ${task.name} at ${task.time}`);
+        await sendSMS(`${task.emoji} ${task.name}`);
         return NextResponse.json({ ok: true });
       }
 
