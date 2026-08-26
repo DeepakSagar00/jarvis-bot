@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const HF_KEY = process.env.HF_API_KEY;
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER;
@@ -127,27 +127,32 @@ async function sendSMS(body: string): Promise<void> {
 
 async function getAIResponse(chatId: number, message: string): Promise<string> {
   try {
-    if (!GEMINI_KEY) return "AI not configured yet!";
+    if (!HF_KEY) return "AI not configured yet!";
 
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: `<s>[INST] ${SYSTEM_PROMPT}
 
-    if (!conversationHistory.has(chatId)) conversationHistory.set(chatId, []);
-    const history = conversationHistory.get(chatId)!;
-    history.push(message);
-    if (history.length > 20) history.splice(0, history.length - 20);
+User: ${message} [/INST]</s>`,
+          parameters: { max_new_tokens: 200, temperature: 0.7, return_full_text: false },
+        }),
+      }
+    );
 
-    const chat = model.startChat({
-      history: [
-        { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-        { role: "model", parts: [{ text: "Got it! I'm Jarvis, your buddy! 💪" }] },
-      ],
-    });
+    if (!response.ok) {
+      console.error("HF error:", response.status);
+      return "My brain had a hiccup! Try again 🧠";
+    }
 
-    const result = await chat.sendMessage(message);
-    const reply = result.response.text();
-    history.push(reply);
+    const data = await response.json();
+    const reply = data[0]?.generated_text?.trim() || "Hey! I'm Jarvis, your buddy! 💪";
     return reply;
   } catch (e: any) {
     console.error("AI error:", e.message);
