@@ -15,31 +15,56 @@ interface Task {
   emoji: string;
   time: string;
   date: string;
-  theme: "hype" | "zen";
 }
 
-interface StreakData {
-  currentStreak: number;
+interface UserData {
+  tasks: Task[];
+  streak: number;
   longestStreak: number;
   lastCompletedDate: string | null;
   totalCompleted: number;
+  nickname: string;
 }
 
-const tasks: Task[] = [];
-let streak: StreakData = { currentStreak: 0, longestStreak: 0, lastCompletedDate: null, totalCompleted: 0 };
+const globalStore = globalThis as unknown as { userData: Record<number, UserData> };
+if (!globalStore.userData) globalStore.userData = {};
+
+function getUser(chatId: number): UserData {
+  if (!globalStore.userData[chatId]) {
+    globalStore.userData[chatId] = {
+      tasks: [],
+      streak: 0,
+      longestStreak: 0,
+      lastCompletedDate: null,
+      totalCompleted: 0,
+      nickname: "",
+    };
+  }
+  return globalStore.userData[chatId];
+}
+
+function pick(arr: string[]): string {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 function getEmoji(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes("gym") || n.includes("workout")) return "🏋️";
+  if (n.includes("gym") || n.includes("workout") || n.includes("exercise")) return "🏋️";
   if (n.includes("work") || n.includes("office") || n.includes("meeting")) return "💼";
-  if (n.includes("class") || n.includes("study") || n.includes("learn")) return "📚";
+  if (n.includes("class") || n.includes("study") || n.includes("learn") || n.includes("exam")) return "📚";
   if (n.includes("wake") || n.includes("morning")) return "🌅";
-  if (n.includes("run") || n.includes("jog")) return "🏃";
-  if (n.includes("eat") || n.includes("food") || n.includes("breakfast")) return "🍽️";
+  if (n.includes("run") || n.includes("jog") || n.includes("walk")) return "🏃";
+  if (n.includes("eat") || n.includes("food") || n.includes("breakfast") || n.includes("lunch") || n.includes("dinner")) return "🍽️";
   if (n.includes("read")) return "📖";
   if (n.includes("code") || n.includes("develop")) return "💻";
   if (n.includes("meditat") || n.includes("yoga")) return "🧘";
+  if (n.includes("sleep") || n.includes("nap")) return "😴";
+  if (n.includes("pray") || n.includes("church") || n.includes("temple")) return "🙏";
   return "⚡";
+}
+
+function getTodayDate(): string {
+  return new Date().toISOString().split("T")[0];
 }
 
 function getTomorrowDate(): string {
@@ -48,17 +73,13 @@ function getTomorrowDate(): string {
   return d.toISOString().split("T")[0];
 }
 
-function getTodayDate(): string {
-  return new Date().toISOString().split("T")[0];
-}
-
 async function sendTelegram(chatId: number | string, text: string): Promise<void> {
   if (!TELEGRAM_TOKEN) return;
   try {
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
     });
   } catch (e) {
     console.error("Telegram send failed:", e);
@@ -86,25 +107,25 @@ async function sendSMS(body: string): Promise<void> {
   }
 }
 
-function pick(arr: string[]): string {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function smartReply(message: string): string {
+function smartReply(message: string, user: UserData): string {
   const m = message.toLowerCase().trim();
+  const name = user.nickname || "KD";
 
-  if (m.includes("call me") || m.startsWith("call me ") || m.match(/^call me \w+/)) {
-    const name = message.replace(/.*call me\s*/i, "").trim();
-    if (name) return `Got it, ${name}! 🤝 That's a solid name! I'll remember you as ${name}. Now, what can I do for you? 💪`;
-    return "I'd love to, but you gotta tell me the name first! 😄 Call me what?";
+  if (m.match(/call me \w+/)) {
+    const newName = message.replace(/.*call me\s*/i, "").trim();
+    if (newName) {
+      user.nickname = newName;
+      return `Got it, ${newName}! 🤝 From now on I'll call you ${newName}! What can I do for you, ${newName}? 💪`;
+    }
   }
 
-  if (m.match(/^(hi|hey|hello|yo|sup|hola|hiya|howdy)/) || m === "hi" || m === "hey" || m === "hello" || m === "yo" || m === "sup") {
+  if (m === "/start" || m.match(/^(hi|hey|hello|yo|sup|hola|hiya|howdy)$/)) {
     return pick([
-      "Hey! What's up! 💪",
-      "Yo! I'm here and ready. What's the plan? 🔥",
-      "Hey champion! What can I do for you? 🏆",
-      "Hey! Good to see you! Ready to crush it? 💪",
+      `Hey ${name}! What's up! 💪`,
+      `Yo ${name}! I'm here and ready. What's the plan? 🔥`,
+      `Hey champion! What can I do for you? 🏆`,
+      `Hey! Good to see you! Ready to crush it? 💪`,
+      `${name}! My favorite person is back! What's the plan? 🔥`,
     ]);
   }
 
@@ -113,6 +134,7 @@ function smartReply(message: string): string {
       "Good morning, CHAMPION! ☀️ Rise and grind! Today is YOUR day! 🏆",
       "Morning! Time to be GREAT! What's on the agenda? 🔥",
       "GM! The world is yours today. Let's GO! 💪",
+      "Rise and shine, king! Another day to be legendary! ☀️🏆",
     ]);
   }
 
@@ -121,51 +143,53 @@ function smartReply(message: string): string {
       "Good night, king! 👑 Rest well. Tomorrow we go HARDER! 💪",
       "Sleep well! You earned it. Tomorrow we're back at it! 🌙",
       "Night! Dream big. Tomorrow we make it happen! 🏆",
+      "GN! Sleep tight. Tomorrow is another chance to be GREAT! 🌙💪",
     ]);
   }
 
-  if (m.includes("good afternoon") || m.includes("good evening")) {
+  if (m.includes("good afternoon") || m.includes("good eve")) {
     return pick([
       "Hey! Hope you're having a great day so far! 💪",
       "Good to hear from you! How's the day going? 🏆",
+      `Afternoon ${name}! How's it going? 💪`,
     ]);
   }
 
-  if (m.match(/how are you|how r u|how u doing|how's it going|what's up with you/)) {
+  if (m.match(/how are you|how r u|how u doing|how.?s it going|what.?s up with you/)) {
     return pick([
       "I'm running at 100%! More importantly, how are YOU? 💪",
       "All good on my end! Ready to help you conquer the day! What's up? 🔥",
       "I'm great! Living my best bot life 😄 How about you?",
+      "Couldn't be better! Now tell me about YOUR day! 💪",
     ]);
   }
 
-  if (m.includes("call me kd") || m.includes("call me kd") || m.match(/call me kd/)) {
-    return "Got it, KD! 🤝 That's a strong name! What's the plan, KD? 💪🔥";
-  }
-
-  if (m.match(/who are you|what are you|what's your name|tell me about yourself/)) {
+  if (m.match(/who are you|what are you|what.?s your name|tell me about yourself/)) {
     return pick([
       "I'm Jarvis - your personal accountability buddy! I help you stay on track with tasks, streaks, and motivation! 🤖💪",
       "Name's Jarvis! Think of me as your 24/7 life coach in your pocket. Tasks, reminders, motivation - I got you! 💪",
+      "I'm Jarvis! Your AI assistant built by you to help you CRUSH your goals! 🏆💪",
     ]);
   }
 
-  if (m.includes("tired") || m.includes("lazy") || m.includes("not feeling") || m.includes("don't want") || m.includes("no motivation")) {
+  if (m.match(/tired|lazy|not feeling|don.?t want|no motivation|exhausted|no energy|burnt out/)) {
     return pick([
       "I get it, but you're STRONGER than you think! 💪 Take a deep breath and keep going!",
       "Tired is just a feeling, not a fact. Your future self is counting on you! 🚀",
       "Rest if you need to, but don't quit. You started this for a REASON! 🔥",
       "Even champions have off days. Take a breath, reset, and come back swinging! 💪",
+      "It's okay to rest. But don't stop. Small steps still move you forward! 🏆",
     ]);
   }
 
-  if (m.match(/motivat|inspire|encourage|pump me|pep talk/)) {
+  if (m.match(/motivat|inspire|encourage|pump me|pep talk|boost/)) {
     return pick([
       "You started this for a REASON! Every step counts! 🚀",
       "Champions are built in the dark, when nobody's watching. Keep grinding! 💪",
       "Your only limit is the one you set yourself. BREAK IT! 🔥",
       "One day you'll tell your story of how you overcame what you went through. Keep going! 🏆",
       "You didn't come this far to only come this far. Keep GOING! 💪",
+      "The pain of discipline is nothing compared to the pain of regret. PUSH HARDER! 🔥",
     ]);
   }
 
@@ -177,7 +201,7 @@ function smartReply(message: string): string {
     ]);
   }
 
-  if (m.match(/bye|goodbye|see ya|see you|talk later|gotta go|gtg/)) {
+  if (m.match(/bye|goodbye|see ya|talk later|gotta go|gtg|cya/)) {
     return pick([
       "See you later, champion! Have an epic day! 🚀",
       "Catch you later! Stay focused and stay strong! 💪",
@@ -185,78 +209,89 @@ function smartReply(message: string): string {
     ]);
   }
 
-  if (m.match(/sad|depressed|upset|feeling down|unhappy|lonely/)) {
+  if (m.match(/sad|depressed|upset|feeling down|unhappy|lonely|cry|crying|heartbreak/)) {
     return pick([
       "Hey, it's okay to feel down sometimes. But remember - you're not alone, and this too shall pass. 💪❤️",
-      "I'm here for you, KD. Tomorrow is a new day with new chances. You got this! 💪",
+      `I'm here for you, ${name}. Tomorrow is a new day with new chances. You got this! 💪`,
       "Tough times don't last, but tough people do. And YOU are TOUGH! 🔥",
+      "I know it's hard right now. But you've gotten through tough times before, and you'll get through this too! 💪❤️",
     ]);
   }
 
-  if (m.match(/joke|funny|make me laugh|humor/)) {
+  if (m.match(/joke|funny|make me laugh|humor|comedy|laugh/)) {
     return pick([
       "Why did the gym close down? It just didn't work out! 😂💪",
       "I told my computer I needed a break. Now it won't stop sending me vacation ads! 😄",
       "Why don't scientists trust atoms? Because they make up everything! 😂",
       "What do you call a fake noodle? An im-pasta! 🍝😄",
+      "Why did the student eat his homework? Because his teacher told him it was a piece of cake! 😂",
+      "What do you call a bear with no teeth? A gummy bear! 🐻😄",
     ]);
   }
 
-  if (m.match(/weather|temperature|rain|hot|cold/)) {
-    return "I can't check the weather (I'm just a bot in a server 😅), but whatever it is - weather doesn't stop champions! Go get it! 💪🔥";
+  if (m.match(/weather|temperature|rain|hot|cold|sunshine/)) {
+    return pick([
+      "I can't check the weather, but whatever it is - weather doesn't stop champions! 💪🔥",
+      "Rain or shine, you're showing up today! That's what matters! 💪",
+    ]);
   }
 
-  if (m.match(/hungry|eat|food|lunch|dinner|breakfast|snack/)) {
+  if (m.match(/hungry|eat|food|lunch|dinner|breakfast|snack|starving|thirsty|water/)) {
     return pick([
       "Fuel up, champ! You can't perform on an empty tank! 🍽️💪",
       "Eat well, train well! What are you having? 🍽️",
       "Food is fuel! Make it count and get back to being awesome! 💪",
+      "Stay hydrated and eat clean! Your body is your machine! 💪💧",
     ]);
   }
 
-  if (m.match(/sleep|nap|bed|rest/)) {
+  if (m.match(/sleep|nap|bed|rest|tired|exhausted/)) {
     return pick([
       "Rest is important! But don't oversleep - we've got things to do! 😴💪",
-      "Good rest = good performance. But remember, 4:30 AM comes early! ⏰",
+      "Good rest = good performance. Recharge and come back stronger! 🔋",
+      "Sleep well, but remember your goals are waiting for you! 😴🏆",
     ]);
   }
 
-  if (m.match(/love|hate|like|miss|feel about/)) {
+  if (m.match(/\blove\b|\bhate\b|\blike\b|\bmiss\b/)) {
     return pick([
-      "I'm just a bot, but I care about your progress! 💪 That counts for something, right? 😄",
+      "I'm just a bot, but I care about your progress! That counts for something, right? 😄💪",
       "Spread love, stay focused, and keep growing! You're doing amazing! 💪❤️",
     ]);
   }
 
-  if (m.match(/can you|what can|help|features|commands/)) {
-    return "Here's what I can do:\n\n📝 Add task: /add gym 5:30\n📋 Schedule: /schedule\n✅ Done: /done\n🔥 Streak: /streak\n💪 Motivate: /motivate\n🗑️ Remove: /remove gym\n📱 /sms - test SMS\n\nOr just chat with me! 💬";
+  if (m.match(/can you|what can|features|commands/)) {
+    return `Here's what I can do, ${name}:\n\n📝 Add task: /add gym 5:30\n📋 Schedule: /schedule\n✅ Done: /done\n🔥 Streak: /streak\n💪 Motivate: /motivate\n🗑️ Remove: /remove gym\n📱 /sms - test SMS\n📱 /listsms - SMS all tasks\n\nOr just chat with me! 💬`;
   }
 
-  if (m.match(/work|office|meeting|meeting|deadline|boss/)) {
+  if (m.match(/work|office|meeting|deadline|boss|job|salary/)) {
     return pick([
       "Work hard, but also work smart! You got this! 💼💪",
       "Every meeting, every deadline - it's building YOUR career. Crush it! 🏆",
+      "Work is temporary, but your growth is permanent. Keep leveling up! 💪",
     ]);
   }
 
-  if (m.match(/gym|workout|exercise|push|pull|leg day|abs/)) {
+  if (m.match(/gym|workout|exercise|push|pull|leg day|abs|cardio|bicep|chest/)) {
     return pick([
       "Let's GO! Time to tear it up! 💪🏋️",
       "No excuses! Every rep brings you closer to your goal! 🔥",
       "Beast mode! You're stronger than yesterday! 🏋️💪",
       "Remember why you started. Now GO HARD! 💪🔥",
+      "Pain is temporary, pride is FOREVER! Go kill that workout! 🏆",
     ]);
   }
 
-  if (m.match(/study|class|exam|learn|read|book/)) {
+  if (m.match(/study|class|exam|learn|read|book| assignment|homework/)) {
     return pick([
       "Knowledge is POWER! Keep learning, keep growing! 📚💪",
       "Study hard today, shine tomorrow! You got this! 🏆",
       "Every page you read is an investment in yourself! 📚🔥",
+      "You're investing in your future right now! Keep going! 📚💪",
     ]);
   }
 
-  if (m.match(/streak|consistency|discipline|habit/)) {
+  if (m.match(/streak|consistency|discipline|habit|routine/)) {
     return pick([
       "Consistency is KEY! Every day you show up, you win! 🔥",
       "Discipline beats motivation. And you're building it every single day! 💪",
@@ -264,27 +299,104 @@ function smartReply(message: string): string {
     ]);
   }
 
-  if (m.match(/ok|okay|k|alright|cool|nice|great|awesome|perfect|sure|yes|yeah|yep|nah|no/)) {
+  if (m.match(/^ok$|^okay$|^k$|^alright$|^cool$|^nice$|^great$|^awesome$|^perfect$|^sure$|^yeah$|^yep$|^nah$|^no$|^y$/)) {
     return pick([
       "👍 Cool! Let me know if you need anything!",
       "Nice! I'm here whenever you need me! 💪",
       "Awesome! What's next? 🔥",
+      "👍 Always here for you!",
     ]);
   }
 
-  if (m.match(/kd|deepak|sagar/)) {
+  if (m.match(/car|bike|drive|travel|trip|vacation/)) {
     return pick([
-      "That's my guy! What's up, KD? 💪🔥",
-      "KD in the house! What do you need? 🏆",
+      "Life's a journey! Enjoy the ride but stay focused on the destination! 🚗💪",
+      "Travel goals! Work hard now, travel later! 🌍🏆",
     ]);
   }
 
-  return pick([
-    "I hear you, KD! Need help with tasks? /add [task] [time]\nOr just chat! I'm all ears! 💬💪",
-    "Got it! Anything specific you need? I can manage tasks, track streaks, or just vibe! 💪",
-    "Interesting! Tell me more, or try:\n/add gym 5:30\n/schedule\n/streak 🚀",
-    "I'm listening! What's on your mind? 💪",
-  ]);
+  if (m.match(/money|rich|broke|expensive|cheap|buy|sell/)) {
+    return pick([
+      "Money follows value! Keep building your skills and the money will come! 💰💪",
+      "Invest in yourself first! The returns are unlimited! 📈🏆",
+    ]);
+  }
+
+  if (m.match(/girl|boy|crush|relationship|date|partner|gf|bf/)) {
+    return pick([
+      "Focus on yourself first! When you level up, everything else follows! 💪🏆",
+      "Love yourself, work on yourself, and the right people will find you! ❤️💪",
+    ]);
+  }
+
+  if (m.match(/phone|mobile|app|instagram|youtube|tiktok|social/)) {
+    return pick([
+      "Put the phone down and GO DO SOMETHING AMAZING! 📱➡️💪",
+      "Social media is a trap! Your real life is out there! Go live it! 🔥",
+    ]);
+  }
+
+  if (m.match(/age|old|young|born|birthday/)) {
+    return pick([
+      "Age is just a number! What matters is what you DO with your time! 💪",
+      "You're never too old or too young to start! Just START! 🔥",
+    ]);
+  }
+
+  if (m.match(/bored|boring|nothing to do|empty|idle/)) {
+    return pick([
+      "Bored? Perfect time to work on yourself! 💪 What task should we add?",
+      "Boredom is a signal - it means you have time to GROW! Use it! 🔥",
+      "Never bored when you have goals! What are you working on? 🏆",
+    ]);
+  }
+
+  if (m.match(/help me|i need|please|assist/)) {
+    return pick([
+      `I'm here for you, ${name}! Tell me what you need! 💪`,
+      "Of course! What's going on? I'm listening! 🤝",
+    ]);
+  }
+
+  if (m.match(/yes|no|maybe|nah|yep|nope|true|false|correct|wrong/)) {
+    return pick([
+      "Got it! Anything else? 💪",
+      "Noted! What's next? 🔥",
+    ]);
+  }
+
+  if (m.match(/name|what should i|should i|should we|which|what do you think|opinion/)) {
+    return pick([
+      "Trust your gut! You usually know what's right! 💪",
+      "I believe in whatever you choose! Just commit to it! 🔥",
+      "You're the boss! I'm just here to support your decisions! 💪",
+    ]);
+  }
+
+  if (m.match(/plan|schedule|today|tomorrow|week|agenda/)) {
+    return "Use /schedule to see your tasks! Or /add to plan something new! 📝💪";
+  }
+
+  if (m.match(/\?$/)) {
+    return pick([
+      "Great question! I may not have all the answers, but I know you'll figure it out! 💪",
+      "Hmm, I'm just a bot but I believe in you! 🤔💪",
+      "That's deep! What I do know is you're capable of amazing things! 🔥",
+    ]);
+  }
+
+  const randomResponses = [
+    `Interesting, ${name}! Tell me more! 💬`,
+    `I hear you, ${name}! What's on your mind? 💪`,
+    `Got it! Need anything? Try /add gym 5:30 📝`,
+    `${name}, I'm all ears! What's up? 🏆`,
+    `Cool! Let me know how I can help! 💪`,
+    `Noted! Anything you want to talk about? 💬`,
+    `Sounds good, ${name}! Keep going! 🔥`,
+    `I'm listening! What else is going on? 💪`,
+  ];
+
+  return pick(randomResponses);
 }
 
 function parseAddCommand(text: string): { name: string; time: string } | null {
@@ -303,47 +415,46 @@ function parseAddCommand(text: string): { name: string; time: string } | null {
   return name ? { name, time } : null;
 }
 
-function addTask(name: string, time: string, date?: string): Task {
+function addTask(chatId: number, name: string, time: string): Task {
+  const user = getUser(chatId);
   const task: Task = {
-    id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    id: `task_${Date.now()}`,
     name: name.trim(),
     emoji: getEmoji(name),
     time,
-    date: date || getTomorrowDate(),
-    theme: "hype",
+    date: getTodayDate(),
   };
-  tasks.push(task);
+  user.tasks.push(task);
   return task;
 }
 
-function updateStreak(completed: boolean): StreakData {
+function updateStreak(user: UserData, completed: boolean): void {
   const today = getTodayDate();
   if (!completed) {
-    streak.currentStreak = 0;
-    return streak;
+    user.streak = 0;
+    return;
   }
-  if (streak.lastCompletedDate === today) {
-    streak.totalCompleted++;
-    return streak;
+  if (user.lastCompletedDate === today) {
+    user.totalCompleted++;
+    return;
   }
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  if (streak.lastCompletedDate === yesterday.toISOString().split("T")[0]) {
-    streak.currentStreak++;
+  if (user.lastCompletedDate === yesterday.toISOString().split("T")[0]) {
+    user.streak++;
   } else {
-    streak.currentStreak = 1;
+    user.streak = 1;
   }
-  if (streak.currentStreak > streak.longestStreak) streak.longestStreak = streak.currentStreak;
-  streak.lastCompletedDate = today;
-  streak.totalCompleted++;
-  return streak;
+  if (user.streak > user.longestStreak) user.longestStreak = user.streak;
+  user.lastCompletedDate = today;
+  user.totalCompleted++;
 }
 
-function getStreakMessage(): string {
-  if (streak.currentStreak === 0) return "No active streak. Start today! 💪";
-  let msg = `🔥 Current: ${streak.currentStreak} days\n🏆 Best: ${streak.longestStreak} days\n✅ Total: ${streak.totalCompleted} tasks`;
-  if (streak.currentStreak >= 7) msg += "\n\n🌟 INCREDIBLE! 7+ days straight!";
-  if (streak.currentStreak >= 30) msg += "\n\n🏆 LEGENDARY! 30+ days!";
+function getStreakMessage(user: UserData): string {
+  if (user.streak === 0) return "No active streak. Start today! 💪";
+  let msg = `🔥 Current: ${user.streak} days\n🏆 Best: ${user.longestStreak} days\n✅ Total: ${user.totalCompleted} tasks`;
+  if (user.streak >= 7) msg += "\n\n🌟 INCREDIBLE! 7+ days straight!";
+  if (user.streak >= 30) msg += "\n\n🏆 LEGENDARY! 30+ days!";
   return msg;
 }
 
@@ -356,21 +467,21 @@ export async function POST(request: NextRequest) {
       const text = update.message.text || "";
       if (!text) return NextResponse.json({ ok: true });
 
-      process.env.USER_CHAT_ID = String(chatId);
+      const user = getUser(chatId);
 
       if (text === "/start") {
-        await sendTelegram(chatId, "Hey! 👋 I'm Jarvis!\n\n💬 Talk to me naturally!\n📝 /add gym 5:30\n📋 /schedule\n🔥 /streak\n💪 /motivate\n📱 /sms - test SMS\n\nJust chat like a friend! You can call me anything! 😊");
+        await sendTelegram(chatId, `Hey! 👋 I'm Jarvis!\n\n💬 Talk to me naturally!\n📝 /add gym 5:30\n📋 /schedule\n🔥 /streak\n💪 /motivate\n📱 /sms - test SMS\n\nJust chat like a friend! You can call me anything! 😊`);
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/help") {
-        await sendTelegram(chatId, "📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n💪 /motivate\n📱 /sms - test SMS\n📱 /listsms - SMS all tasks\n\nOr just chat! Call me anything! 💬");
+        await sendTelegram(chatId, `📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n💪 /motivate\n📱 /sms - test SMS\n📱 /listsms - SMS all tasks\n\nOr just chat! Call me anything! 💬`);
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/schedule") {
-        const today = tasks.filter((t) => t.date === getTodayDate());
-        const tomorrow = tasks.filter((t) => t.date === getTomorrowDate());
+        const today = user.tasks.filter((t) => t.date === getTodayDate());
+        const tomorrow = user.tasks.filter((t) => t.date === getTomorrowDate());
         let msg = "📋 Schedule:\n\n";
         if (today.length) msg += "Today:\n" + today.map((t) => `${t.emoji} ${t.name} at ${t.time}`).join("\n") + "\n\n";
         if (tomorrow.length) msg += "Tomorrow:\n" + tomorrow.map((t) => `${t.emoji} ${t.name} at ${t.time}`).join("\n");
@@ -380,25 +491,25 @@ export async function POST(request: NextRequest) {
       }
 
       if (text === "/done") {
-        updateStreak(true);
-        const reply = "✅ Task completed!\n\n" + getStreakMessage();
+        updateStreak(user, true);
+        const reply = "✅ Task completed!\n\n" + getStreakMessage(user);
         await sendTelegram(chatId, reply);
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/streak") {
-        await sendTelegram(chatId, getStreakMessage());
+        await sendTelegram(chatId, getStreakMessage(user));
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/motivate") {
-        const msgs = [
+        await sendTelegram(chatId, pick([
           "You started this for a REASON! Every step counts! 🚀",
           "Champions are built in the dark, when nobody's watching. Keep grinding! 💪",
           "Your only limit is the one you set yourself. BREAK IT! 🔥",
           "One day you'll tell your story of how you overcame what you went through. Keep going! 🏆",
-        ];
-        await sendTelegram(chatId, msgs[Math.floor(Math.random() * msgs.length)]);
+          "Discipline is choosing between what you want NOW and what you want MOST! 🔥",
+        ]));
         return NextResponse.json({ ok: true });
       }
 
@@ -409,13 +520,13 @@ export async function POST(request: NextRequest) {
       }
 
       if (text === "/listsms") {
-        if (tasks.length === 0) {
+        if (user.tasks.length === 0) {
           await sendTelegram(chatId, "No tasks to SMS! Add some with /add gym 5:30");
         } else {
-          for (const task of tasks) {
-            await sendSMS(`${task.emoji} Reminder: ${task.name}`);
+          for (const task of user.tasks) {
+            await sendSMS(`${task.emoji} ${task.name}`);
           }
-          await sendTelegram(chatId, `📱 Sent ${tasks.length} SMS reminders to your phone!`);
+          await sendTelegram(chatId, `📱 Sent ${user.tasks.length} SMS reminders to your phone!`);
         }
         return NextResponse.json({ ok: true });
       }
@@ -426,25 +537,25 @@ export async function POST(request: NextRequest) {
           await sendTelegram(chatId, "❌ Usage: /add gym 5:30");
           return NextResponse.json({ ok: true });
         }
-        const task = addTask(parsed.name, parsed.time);
+        const task = addTask(chatId, parsed.name, parsed.time);
         await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${task.time}! 💪`);
         await sendSMS(`${task.emoji} Reminder: ${task.name} at ${task.time}`);
         return NextResponse.json({ ok: true });
       }
 
       if (text.startsWith("/remove")) {
-        const name = text.replace("/remove", "").trim().toLowerCase();
-        const found = tasks.find((t) => t.name.toLowerCase().includes(name));
+        const removeName = text.replace("/remove", "").trim().toLowerCase();
+        const found = user.tasks.find((t) => t.name.toLowerCase().includes(removeName));
         if (found) {
-          tasks.splice(tasks.indexOf(found), 1);
+          user.tasks.splice(user.tasks.indexOf(found), 1);
           await sendTelegram(chatId, `${found.emoji} ${found.name} removed! ✅`);
         } else {
-          await sendTelegram(chatId, `Can't find "${name}". Check /schedule`);
+          await sendTelegram(chatId, `Can't find "${removeName}". Check /schedule`);
         }
         return NextResponse.json({ ok: true });
       }
 
-      const reply = smartReply(text);
+      const reply = smartReply(text, user);
       await sendTelegram(chatId, reply);
     }
 
