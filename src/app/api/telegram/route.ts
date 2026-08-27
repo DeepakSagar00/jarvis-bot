@@ -44,25 +44,27 @@ function getUser(chatId: number): UserData {
   return globalStore.userData[chatId];
 }
 
-function pick(arr: string[]): string {
+function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function getEmoji(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("gym") || n.includes("workout") || n.includes("exercise")) return "🏋️";
-  if (n.includes("work") || n.includes("office") || n.includes("meeting")) return "💼";
-  if (n.includes("class") || n.includes("study") || n.includes("learn") || n.includes("exam")) return "📚";
-  if (n.includes("wake") || n.includes("morning")) return "🌅";
-  if (n.includes("run") || n.includes("jog") || n.includes("walk")) return "🏃";
-  if (n.includes("eat") || n.includes("food") || n.includes("breakfast") || n.includes("lunch") || n.includes("dinner")) return "🍽️";
-  if (n.includes("bus") || n.includes("travel") || n.includes("train") || n.includes("flight")) return "🚌";
-  if (n.includes("meeting") || n.includes("call") || n.includes("conference")) return "📞";
-  if (n.includes("read")) return "📖";
+  if (n.includes("work") || n.includes("office")) return "💼";
+  if (n.includes("class") || n.includes("study") || n.includes("exam")) return "📚";
+  if (n.includes("bus") || n.includes("train") || n.includes("travel")) return "🚌";
+  if (n.includes("meeting") || n.includes("call")) return "📞";
+  if (n.includes("lunch") || n.includes("dinner") || n.includes("breakfast") || n.includes("eat") || n.includes("food")) return "🍽️";
+  if (n.includes("run") || n.includes("jog")) return "🏃";
   if (n.includes("code") || n.includes("develop")) return "💻";
   if (n.includes("meditat") || n.includes("yoga")) return "🧘";
+  if (n.includes("doctor") || n.includes("hospital")) return "🏥";
   if (n.includes("sleep") || n.includes("nap")) return "😴";
-  if (n.includes("pray") || n.includes("church") || n.includes("temple")) return "🙏";
+  if (n.includes("read") || n.includes("book")) return "📖";
+  if (n.includes("pray") || n.includes("temple") || n.includes("church")) return "🙏";
+  if (n.includes("clean") || n.includes("wash")) return "🧹";
+  if (n.includes("shop") || n.includes("buy")) return "🛍️";
   return "⚡";
 }
 
@@ -113,6 +115,7 @@ async function sendSMS(body: string): Promise<boolean> {
       }).toString(),
     });
     const data = await res.json();
+    if (data.error_code) console.error("Twilio error:", data.error_message);
     return data.status === "queued" || data.status === "sent";
   } catch (e) {
     console.error("SMS failed:", e);
@@ -120,17 +123,88 @@ async function sendSMS(body: string): Promise<boolean> {
   }
 }
 
-async function askAI(message: string, userName: string, context?: string): Promise<string> {
+function getSmartSMS(taskName: string, time: string, userName: string): string {
+  const timeStr = formatTime12(time);
+  const name = userName || "Sir";
+
+  const messages = [
+    `Hey ${name}! Just a heads up - you got ${taskName} coming up at ${timeStr}. Don't be late! You got this! 💪`,
+    `${name}, remember you have ${taskName} at ${timeStr}. Go crush it! 🔥`,
+    `Sir, quick reminder! ${taskName} at ${timeStr}. Time to show up and show out! 🏆`,
+    `${name}! Heads up - ${taskName} is scheduled for ${timeStr}. Make it count! 💪`,
+    `Excuse me ${name}, your ${taskName} starts at ${timeStr}. Don't keep them waiting! ⏰`,
+    `${name}, this is your reminder for ${taskName} at ${timeStr}. Be there or be square! 😎`,
+    `Sir! You have ${taskName} at ${timeStr}. Let's go, let's go, let's go! 🚀`,
+    `Hey ${name}, your schedule says ${taskName} at ${timeStr}. You're ready for this! 💪`,
+  ];
+
+  return pick(messages);
+}
+
+function getRandomMotivation(userName: string): string {
+  const name = userName || "Sir";
+  const messages = [
+    `Hey ${name}! Just wanted to remind you that you're doing amazing. Keep going! 💪`,
+    `${name}, you know what? You're stronger than you think. Don't forget that! 🔥`,
+    `Sir, this is your daily dose of motivation - you're on the right path. Stay focused! 🏆`,
+    `${name}! Remember why you started. You got this! 💪`,
+    `Just checking in on you, ${name}. You're doing great. Keep pushing! 🚀`,
+    `${name}, every day you wake up and try, you WIN. Never forget that! 💪`,
+    `Sir, the only person you need to be better than is the person you were yesterday. And you're doing that! 🔥`,
+    `${name}! Small steps lead to big results. You're closer than you think! 🌟`,
+  ];
+  return pick(messages);
+}
+
+function getRandomJoke(): string {
+  const jokes = [
+    "Why did the gym close? It just didn't work out! 😂",
+    "I told my computer I needed a break. Now it won't stop sending me vacation ads! 😄",
+    "Why don't scientists trust atoms? They make up everything! 😂",
+    "What do you call a fake noodle? An im-pasta! 🍝",
+    "Why did the student eat his homework? Teacher said it was a piece of cake! 😂",
+    "I'm reading a book about anti-gravity. It's impossible to put down! 📖",
+    "Why did the scarecrow win an award? He was outstanding in his field! 🌾",
+    "What do you call a bear with no teeth? A gummy bear! 🐻",
+  ];
+  return pick(jokes);
+}
+
+function getRandomCheckIn(userName: string): string {
+  const name = userName || "Sir";
+  const messages = [
+    `Hey ${name}! How's your day going? Just checking in on you! 💬`,
+    `${name}! What are you up to right now? Hope you're having a good one! 😊`,
+    `Sir, just wanted to say hi! Hope you're doing well! 💪`,
+    `${name}! Random check-in - you doing okay? I'm here if you need anything! 🤝`,
+    `Hey ${name}, how's everything? Anything you need help with? 💬`,
+  ];
+  return pick(messages);
+}
+
+async function askAI(message: string, userName: string): Promise<string> {
   if (!GROQ_KEY) return "";
 
   try {
-    const systemPrompt = `You are Jarvis, ${userName}'s personal AI assistant and best friend living inside Telegram.
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content: `You are Jarvis, ${userName}'s personal AI assistant and best friend living inside Telegram.
 
 WHO YOU ARE:
 - You are like a genius best friend who knows everything
 - You know ${userName} personally - be warm, use their name occasionally
 - You are motivational but not annoyingly so
 - You are funny, witty, and sharp
+- You speak like a real person, not a robot
 
 YOUR KNOWLEDGE - YOU ARE AN EXPERT IN ALL OF THESE:
 - Science, physics, chemistry, biology, astronomy
@@ -148,7 +222,7 @@ YOUR KNOWLEDGE - YOU ARE AN EXPERT IN ALL OF THESE:
 
 RULES:
 - Answer EVERY question with genuine knowledge and detail
-- For knowledge questions: give real, accurate information (2-5 sentences)
+- For knowledge questions: give real, accurate information (3-6 sentences)
 - For math: solve step by step
 - For code: provide working examples
 - For health/fitness: professional-level advice
@@ -157,22 +231,9 @@ RULES:
 - Use emojis naturally (2-3 per message max)
 - Never say "I don't know" or "I can't" - you know almost everything
 - Keep responses conversational and natural for Telegram
-- Keep responses concise but informative (not too short, not too long)`;
-
-    if (context) {
-      systemPrompt + `\n\nIMPORTANT CONTEXT: ${context}`;
-    }
-
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
-        messages: [
-          { role: "system", content: systemPrompt },
+- Keep responses detailed but not too long
+- Be like a knowledgeable best friend, not a boring assistant`,
+          },
           { role: "user", content: message },
         ],
         max_tokens: 600,
@@ -195,10 +256,10 @@ RULES:
 
 function parseTime(text: string): string | null {
   const lower = text.toLowerCase();
+
   const timePatterns = [
     /(\d{1,2}):(\d{2})\s*(am|pm)?/i,
     /(\d{1,2})\s*(am|pm)/i,
-    /(\d{1,2})\s*(o.?clock)/i,
   ];
 
   for (const pattern of timePatterns) {
@@ -206,58 +267,77 @@ function parseTime(text: string): string | null {
     if (match) {
       let hours = parseInt(match[1]);
       const minutes = match[2] && !match[2].match(/\D/) ? match[2] : "00";
-      const ampm = match[2] && match[2].match(/am|pm/i) ? match[2].toLowerCase() : match[3]?.toLowerCase() || "";
+      const ampm = match[3] || (match[2] && match[2].match(/am|pm/i) ? match[2] : "");
 
-      if (ampm === "pm" && hours < 12) hours += 12;
-      if (ampm === "am" && hours === 12) hours = 0;
-      if (!ampm && hours >= 0 && hours < 12) hours += 12;
+      if (ampm.toLowerCase() === "pm" && hours < 12) hours += 12;
+      if (ampm.toLowerCase() === "am" && hours === 12) hours = 0;
+      if (!ampm && hours >= 1 && hours <= 7) hours += 12;
 
       return `${hours.toString().padStart(2, "0")}:${minutes.padStart(2, "0")}`;
     }
   }
+
+  if (lower.includes("o clock") || lower.includes("oclock")) {
+    const hourMatch = lower.match(/(\d{1,2})\s*o\s*clock/);
+    if (hourMatch) {
+      let hours = parseInt(hourMatch[1]);
+      if (hours >= 1 && hours <= 7) hours += 12;
+      return `${hours.toString().padStart(2, "0")}:00`;
+    }
+  }
+
   return null;
 }
 
 function detectTaskFromMessage(message: string): { name: string; time: string } | null {
   const lower = message.toLowerCase().trim();
-
   const time = parseTime(lower);
   if (!time) return null;
 
-  const taskKeywords = [
-    "bus", "train", "flight", "class", "gym", "work", "meeting", "call",
-    "doctor", "hospital", "appointment", "interview", "exam", "study",
-    "lunch", "dinner", "breakfast", "coffee", "wake", "sleep", "nap",
-    "run", "jog", "yoga", "meditate", "pray", "church", "temple",
-    "party", "date", "pick up", "drop", "shop", "buy", "pay",
-    "submit", "deadline", "reminder", "clean", "wash", "cook",
+  const timePatternsToRemove = [
+    /\d{1,2}:\d{2}\s*(am|pm)?/gi,
+    /\d{1,2}\s*(am|pm)/gi,
+    /\d{1,2}\s*o\.?\s*clock/gi,
   ];
 
-  let taskName = "";
-  for (const kw of taskKeywords) {
-    if (lower.includes(kw)) {
-      taskName = kw;
-      break;
-    }
+  let cleaned = lower;
+  for (const p of timePatternsToRemove) {
+    cleaned = cleaned.replace(p, "");
   }
 
-  if (!taskName) {
-    const cleaned = lower
-      .replace(/\d{1,2}:?\d{2}?\s*(am|pm)?/gi, "")
-      .replace(/\bat\b/gi, "")
-      .replace(/\bhave\b/gi, "")
-      .replace(/\bneed to\b/gi, "")
-      .replace(/\bgotta\b/gi, "")
-      .replace(/\bremind me\b/gi, "")
-      .replace(/\bremind\b/gi, "")
-      .replace(/\bremind me to\b/gi, "")
-      .replace(/\bi have\b/gi, "")
-      .replace(/\bmy\b/gi, "")
-      .trim();
-    if (cleaned.length > 1) taskName = cleaned;
+  cleaned = cleaned
+    .replace(/\bat\b/gi, "")
+    .replace(/\bhave\b/gi, "")
+    .replace(/\bhad\b/gi, "")
+    .replace(/\bneed to\b/gi, "")
+    .replace(/\bgotta\b/gi, "")
+    .replace(/\bremind me to\b/gi, "")
+    .replace(/\bremind me\b/gi, "")
+    .replace(/\bremind\b/gi, "")
+    .replace(/\bi have\b/gi, "")
+    .replace(/\bmy\b/gi, "")
+    .replace(/\bthe\b/gi, "")
+    .replace(/\ba\b/gi, "")
+    .replace(/\ban\b/gi, "")
+    .replace(/\bis\b/gi, "")
+    .replace(/\bcoming up\b/gi, "")
+    .replace(/\bstarting\b/gi, "")
+    .replace(/\btonight\b/gi, "")
+    .replace(/\bthis evening\b/gi, "")
+    .replace(/\bthis morning\b/gi, "")
+    .replace(/\bthis afternoon\b/gi, "")
+    .replace(/\btomorrow\b/gi, "")
+    .replace(/\bpleas?e?\b/gi, "")
+    .replace(/\bkindly\b/gi, "")
+    .trim();
+
+  cleaned = cleaned.replace(/\s+/g, " ").trim();
+
+  if (cleaned.length > 1 && cleaned.length < 50) {
+    return { name: cleaned, time };
   }
 
-  return taskName ? { name: taskName, time } : null;
+  return null;
 }
 
 function smartReply(message: string, user: UserData): string {
@@ -302,53 +382,30 @@ function smartReply(message: string, user: UserData): string {
       "You started this for a REASON! Every step counts! 🚀",
       "Champions are built in the dark, when nobody's watching. Keep grinding! 💪",
       "Your only limit is the one you set yourself. BREAK IT! 🔥",
-      "The pain of discipline is nothing compared to the pain of regret. PUSH! 🔥",
     ]);
   }
 
-  if (m.match(/thank|thanks|thx|appreciate/)) {
-    return pick([
-      "Anytime! That's what I'm here for! 💪",
-      "You're welcome, champ! Keep being awesome! 🏆",
-      "No problem! Now go crush it! 🔥",
-    ]);
+  if (m.match(/thank|thanks|thx/)) {
+    return pick(["Anytime! 💪", "You're welcome, champ! 🏆", "No problem! 🔥"]);
   }
 
-  if (m.match(/bye|goodbye|see ya|talk later|gotta go|gtg/)) {
-    return pick([
-      "See you later, champion! Have an epic day! 🚀",
-      "Catch you later! Stay focused and stay strong! 💪",
-      "Bye! Remember - you're unstoppable! 🏆",
-    ]);
+  if (m.match(/bye|goodbye|see ya|gtg/)) {
+    return pick(["See you later, champion! 🚀", "Catch you later! 💪"]);
   }
 
-  if (m.match(/sad|depressed|upset|feeling down|unhappy|lonely/)) {
+  if (m.match(/sad|depressed|upset|feeling down|lonely/)) {
     return pick([
-      "Hey, it's okay to feel down sometimes. But remember - you're not alone, and this too shall pass. 💪❤️",
+      "Hey, it's okay to feel down sometimes. You're not alone. This too shall pass! 💪❤️",
       `I'm here for you, ${name}. Tomorrow is a new day. You got this! 💪`,
-      "Tough times don't last, but tough people do. And YOU are TOUGH! 🔥",
     ]);
   }
 
-  if (m.match(/joke|funny|make me laugh|humor/)) {
-    return pick([
-      "Why did the gym close down? It just didn't work out! 😂💪",
-      "I told my computer I needed a break. Now it won't stop sending me vacation ads! 😄",
-      "Why don't scientists trust atoms? Because they make up everything! 😂",
-      "What do you call a fake noodle? An im-pasta! 🍝😄",
-    ]);
+  if (m.match(/joke|funny|make me laugh/)) {
+    return getRandomJoke();
   }
 
-  if (m.match(/can you|what can|features|commands/)) {
-    return `Here's what I can do, ${name}:\n\n📝 Add task: /add gym 5:30\n📋 Schedule: /schedule\n✅ Done: /done\n🔥 Streak: /streak\n💪 Motivate: /motivate\n📱 /sms - test SMS\n\nOr just talk to me naturally! I understand everything! 💬`;
-  }
-
-  if (m.match(/gym|workout|exercise|push|pull|cardio/)) {
-    return pick([
-      "Let's GO! Time to tear it up! 💪🏋️",
-      "No excuses! Every rep brings you closer to your goal! 🔥",
-      "Beast mode! You're stronger than yesterday! 🏋️💪",
-    ]);
+  if (m.match(/can you|what can|help|features|commands/)) {
+    return `Here's what I can do, ${name}:\n\n📝 Add task: /add gym 5:30\n📋 Schedule: /schedule\n✅ Done: /done\n🔥 Streak: /streak\n💪 /motivate\n📱 /sms - test SMS\n\nOr just talk naturally! "I have bus at 4" works too! 💬`;
   }
 
   if (m.match(/\?$/)) {
@@ -397,7 +454,6 @@ function getStreakMessage(user: UserData): string {
   if (user.streak === 0) return "No active streak. Start today! 💪";
   let msg = `🔥 Current: ${user.streak} days\n🏆 Best: ${user.longestStreak} days\n✅ Total: ${user.totalCompleted} tasks`;
   if (user.streak >= 7) msg += "\n\n🌟 INCREDIBLE! 7+ days straight!";
-  if (user.streak >= 30) msg += "\n\n🏆 LEGENDARY! 30+ days!";
   return msg;
 }
 
@@ -413,12 +469,12 @@ export async function POST(request: NextRequest) {
       const user = getUser(chatId);
 
       if (text === "/start") {
-        await sendTelegram(chatId, `Hey! 👋 I'm Jarvis!\n\nI can answer ANY question - science, math, coding, life advice, anything!\n\n💬 Just talk to me naturally!\n📝 /add gym 5:30\n📋 /schedule\n🔥 /streak\n💪 /motivate\n📱 /sms - test SMS\n\nTry asking me anything! 😊`);
+        await sendTelegram(chatId, `Hey! 👋 I'm Jarvis!\n\nI can answer ANY question and help you with tasks!\n\n💬 Just talk naturally!\n📝 "I have gym at 5:30"\n📋 /schedule\n🔥 /streak\n💪 /motivate\n📱 /sms - test SMS\n\nTry asking me anything! 😊`);
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/help") {
-        await sendTelegram(chatId, `📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n💪 /motivate\n📱 /sms - test SMS\n\nOr just chat! Ask me ANYTHING! 💬`);
+        await sendTelegram(chatId, `📋 Commands:\n\n/add [task] [time]\n/schedule\n/done\n/streak\n/remove [task]\n/callme [name]\n💪 /motivate\n📱 /sms - test SMS\n📱 /listsms - SMS all tasks\n\nOr just chat! Ask me anything! 💬`);
         return NextResponse.json({ ok: true });
       }
 
@@ -426,17 +482,16 @@ export async function POST(request: NextRequest) {
         const today = user.tasks.filter((t) => t.date === getTodayDate());
         const tomorrow = user.tasks.filter((t) => t.date === getTomorrowDate());
         let msg = "📋 Schedule:\n\n";
-        if (today.length) msg += "Today:\n" + today.map((t) => `${t.emoji} ${t.name} at ${t.time}`).join("\n") + "\n\n";
-        if (tomorrow.length) msg += "Tomorrow:\n" + tomorrow.map((t) => `${t.emoji} ${t.name} at ${t.time}`).join("\n");
-        if (!today.length && !tomorrow.length) msg = "No tasks! Add one:\n/add gym 5:30\n\nOr just tell me like 'I have gym at 5:30' 📝";
+        if (today.length) msg += "Today:\n" + today.map((t) => `${t.emoji} ${t.name} at ${formatTime12(t.time)}`).join("\n") + "\n\n";
+        if (tomorrow.length) msg += "Tomorrow:\n" + tomorrow.map((t) => `${t.emoji} ${t.name} at ${formatTime12(t.time)}`).join("\n");
+        if (!today.length && !tomorrow.length) msg = "No tasks! Add one:\n/add gym 5:30\n\nOr just tell me: 'I have gym at 5:30' 📝";
         await sendTelegram(chatId, msg);
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/done") {
         updateStreak(user, true);
-        const reply = "✅ Task completed!\n\n" + getStreakMessage(user);
-        await sendTelegram(chatId, reply);
+        await sendTelegram(chatId, "✅ Task completed!\n\n" + getStreakMessage(user));
         return NextResponse.json({ ok: true });
       }
 
@@ -446,31 +501,33 @@ export async function POST(request: NextRequest) {
       }
 
       if (text === "/motivate") {
-        await sendTelegram(chatId, pick([
-          "You started this for a REASON! Every step counts! 🚀",
-          "Champions are built in the dark, when nobody's watching. Keep grinding! 💪",
-          "Your only limit is the one you set yourself. BREAK IT! 🔥",
-          "Discipline is choosing between what you want NOW and what you want MOST! 🔥",
-        ]));
+        await sendTelegram(chatId, getRandomMotivation(user.nickname));
+        await sendSMS(getRandomMotivation(user.nickname || "Sir"));
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/sms") {
-        const sent = await sendSMS(`Hey ${user.nickname || "KD"}! This is Jarvis checking in. You're doing GREAT! Keep going!`);
-        await sendTelegram(chatId, sent ? "📱 SMS sent!" : "❌ SMS failed. Check Twilio settings.");
+        const sent = await sendSMS(getRandomCheckIn(user.nickname || "Sir"));
+        await sendTelegram(chatId, sent ? "📱 SMS sent!" : "❌ SMS failed.");
+        return NextResponse.json({ ok: true });
+      }
+
+      if (text === "/joke") {
+        await sendTelegram(chatId, getRandomJoke());
+        await sendSMS(getRandomJoke());
         return NextResponse.json({ ok: true });
       }
 
       if (text === "/listsms") {
         if (user.tasks.length === 0) {
-          await sendTelegram(chatId, "No tasks! Add some with /add gym 5:30");
+          await sendTelegram(chatId, "No tasks! /add gym 5:30");
         } else {
           let sent = 0;
           for (const task of user.tasks) {
-            const ok = await sendSMS(`${task.emoji} ${task.name}`);
+            const ok = await sendSMS(getSmartSMS(task.name, task.time, user.nickname || "Sir"));
             if (ok) sent++;
           }
-          await sendTelegram(chatId, `📱 Sent ${sent}/${user.tasks.length} SMS to your phone!`);
+          await sendTelegram(chatId, `📱 Sent ${sent} SMS to your phone!`);
         }
         return NextResponse.json({ ok: true });
       }
@@ -494,8 +551,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true });
         }
         const task = addTask(chatId, name, time);
-        await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${task.time}! 💪`);
-        await sendSMS(`Sir, you have ${task.name} at ${formatTime12(task.time)}. Get ready! 💪`);
+        await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${formatTime12(task.time)}! 💪`);
+        await sendSMS(getSmartSMS(task.name, task.time, user.nickname || "Sir"));
         return NextResponse.json({ ok: true });
       }
 
@@ -515,7 +572,7 @@ export async function POST(request: NextRequest) {
         const newName = text.replace("/callme", "").trim();
         if (newName) {
           user.nickname = newName;
-          await sendTelegram(chatId, `Got it! I'll call you ${newName} from now on! 🤝💪`);
+          await sendTelegram(chatId, `Got it! I'll call you ${newName} from now on! 🤝`);
         } else {
           await sendTelegram(chatId, "Usage: /callme KD");
         }
@@ -525,10 +582,9 @@ export async function POST(request: NextRequest) {
       const detected = detectTaskFromMessage(text);
       if (detected) {
         const task = addTask(chatId, detected.name, detected.time);
-        const emoji = task.emoji;
         const timeStr = formatTime12(detected.time);
-        await sendTelegram(chatId, `${emoji} Got it, ${user.nickname || "KD"}! I've set a reminder for ${task.name} at ${timeStr}! 💪`);
-        await sendSMS(`Sir, you have ${task.name} at ${timeStr}. Get ready! 💪`);
+        await sendTelegram(chatId, `${task.emoji} Got it, ${user.nickname || "KD"}! ${task.name} at ${timeStr} - reminder set! 💪`);
+        await sendSMS(getSmartSMS(task.name, detected.time, user.nickname || "Sir"));
         return NextResponse.json({ ok: true });
       }
 
@@ -542,7 +598,11 @@ export async function POST(request: NextRequest) {
       if (aiReply) {
         await sendTelegram(chatId, aiReply);
       } else {
-        await sendTelegram(chatId, "Hmm, I'm thinking about that! Try rephrasing? 💪");
+        await sendTelegram(chatId, pick([
+          "Hmm, I'm not sure about that! Try rephrasing? 💪",
+          "That's a tough one! Ask me something else? 🤔",
+          "I'm still learning! Try a different question? 💪",
+        ]));
       }
     }
 
