@@ -123,22 +123,137 @@ async function sendSMS(body: string): Promise<boolean> {
   }
 }
 
-function getSmartSMS(taskName: string, time: string, userName: string): string {
+async function getSmartSMS(taskName: string, time: string, userName: string): Promise<string> {
   const timeStr = formatTime12(time);
   const name = userName || "Sir";
 
-  const messages = [
-    `Hey ${name}! Just a heads up - you got ${taskName} coming up at ${timeStr}. Don't be late! You got this! 💪`,
-    `${name}, remember you have ${taskName} at ${timeStr}. Go crush it! 🔥`,
-    `Sir, quick reminder! ${taskName} at ${timeStr}. Time to show up and show out! 🏆`,
-    `${name}! Heads up - ${taskName} is scheduled for ${timeStr}. Make it count! 💪`,
-    `Excuse me ${name}, your ${taskName} starts at ${timeStr}. Don't keep them waiting! ⏰`,
-    `${name}, this is your reminder for ${taskName} at ${timeStr}. Be there or be square! 😎`,
-    `Sir! You have ${taskName} at ${timeStr}. Let's go, let's go, let's go! 🚀`,
-    `Hey ${name}, your schedule says ${taskName} at ${timeStr}. You're ready for this! 💪`,
+  const styles = [
+    { voice: "funny", lang: "en" },
+    { voice: "funny", lang: "hinglish" },
+    { voice: "motivational", lang: "en" },
+    { voice: "motivational", lang: "hinglish" },
+    { voice: "serious", lang: "en" },
+    { voice: "caring", lang: "en" },
+    { voice: "caring", lang: "hinglish" },
+    { voice: "hype", lang: "en" },
+    { voice: "hindi", lang: "hindi" },
+    { voice: "chill", lang: "en" },
+    { voice: "dramatic", lang: "hinglish" },
+    { voice: "bro", lang: "en" },
+    { voice: "formal", lang: "en" },
+    { voice: "wholesome", lang: "en" },
   ];
 
-  return pick(messages);
+  const style = pick(styles);
+
+  const funnyEn = [
+    `Psst ${name}! Your ${taskName} is at ${timeStr}. Don't make me come find you! 😂 Go be great!`,
+    `Alert! Alert! ${name} has ${taskName} at ${timeStr}! If you're reading this in bed, GET UP! 😂💪`,
+    `${name}, your ${taskName} starts at ${timeStr}. I know you're probably scrolling - STOP and get ready! 😂`,
+    `Hey ${name}! Your ${taskName} is calling at ${timeStr}. And no, you can't ghost it like your ex! 😂`,
+    `${name}! ${taskName} at ${timeStr}. I believe in you... mostly. Just go! 😂💪`,
+  ];
+
+  const funnyHinglish = [
+    `${name} bhai, ${taskName} hai ${timeStr} ko! So raha hai kya? Uth ja! 😂💪`,
+    `Arey ${name}, ${taskName} hai ${timeStr} ko. Phone rakh aur taiyar ho ja! 😂`,
+    `${name} boss, ${taskName} time pe karna hai ${timeStr}! Late mat hona, warna main kya karunga! 😂`,
+    `${name} yaar, ${taskName} at ${timeStr}. Abhi bhi bed pe hai? Chal uth! 😂🔥`,
+  ];
+
+  const motivationalEn = [
+    `${name}, you have ${taskName} at ${timeStr}. This is YOUR moment. Go make it count! 💪🔥`,
+    `${taskName} at ${timeStr}, ${name}. Every great achievement starts with showing up. Show up today! 🏆`,
+    `Hey ${name}, ${taskName} is waiting for you at ${timeStr}. Champions don't skip. Let's go! 🚀`,
+    `${name}, remember why you started. ${taskName} at ${timeStr}. You're built for this! 💪`,
+  ];
+
+  const motivationalHinglish = [
+    `${name} bhai, ${taskName} hai ${timeStr} ko. Tum kar sakte ho! Apna 100% do! 💪🔥`,
+    `Champion banne ka time aa gaya, ${name}! ${taskName} at ${timeStr}. Jaake dikha duniya ko! 🏆`,
+    `${name}, himmat mat haar. ${taskName} at ${timeStr}. Tum strong ho! 💪`,
+  ];
+
+  const seriousEn = [
+    `${name}, reminder: ${taskName} at ${timeStr}. Please be on time. Important hai. 📋`,
+    `${taskName} scheduled for ${timeStr}, ${name}. Make sure you're prepared. 📝`,
+    `Hi ${name}, just reminding you about ${taskName} at ${timeStr}. Don't forget! ⏰`,
+  ];
+
+  const caringEn = [
+    `${name} sweetie, you have ${taskName} at ${timeStr}. Hope you're doing okay! Take care! ❤️`,
+    `Hey ${name}, just checking in - you have ${taskName} at ${timeStr}. Don't stress, you'll do great! 🤗`,
+    `${name}, don't forget ${taskName} at ${timeStr}. I know you got this! Sending good vibes! ✨`,
+    `${name}! Don't skip ${taskName} at ${timeStr} okay? I'm rooting for you! 🌟❤️`,
+  ];
+
+  const caringHinglish = [
+    `${name} dear, ${taskName} hai ${timeStr} ko. Tension mat le, sab hoga! ❤️`,
+    `${name} jaan, ${taskName} at ${timeStr}. Apna khayal rakhna! 🤗`,
+  ];
+
+  const hypeEn = [
+    `YO ${name}! ${taskName} AT ${timeStr}! LET'S GOOOO! TIME TO DOMINATE! 🔥🔥🔥💪`,
+    `${name}!! ${taskName}!! ${timeStr}!! CHAMPIONS DON'T WAIT! GET HYPED! 🏆🔥`,
+    `WAKE UP ${name}! ${taskName} at ${timeStr}! TODAY WE EAT! 🍽️🔥💪`,
+    `IT'S GO TIME ${name}! ${taskName} at ${timeStr}! NO EXCUSES! JUST RESULTS! 🚀🔥`,
+  ];
+
+  const hindiEn = [
+    `${name} bhai, ${taskName} hai ${timeStr} ko. Yaad rakhna, bhoolna mat! 🙏`,
+    `${name}, ${taskName} at ${timeStr}. Sab theek hoga, bas time pe pahunchna! 👍`,
+    `Sun ${name}, ${taskName} hai ${timeStr} ko. Dhang se kar, proud hounga main! 😊`,
+    `${name} ji, ${taskName} at ${timeStr}. Dhyan rakho aur time pe jao! 🙏`,
+  ];
+
+  const chillEn = [
+    `Hey ${name}, just so you know - ${taskName} at ${timeStr}. No rush, just be there! 😎`,
+    `${name}, ${taskName} at ${timeStr}. Easy peasy, you got this! 😌`,
+    `Sup ${name}. ${taskName} at ${timeStr}. Whenever you're ready! 👋`,
+  ];
+
+  const dramaticHinglish = [
+    `ALERT! ALERT! ${name} ko ${taskName} karna hai ${timeStr} ko! Duniya ka bhavishya ispe depend hai! 🎬😂`,
+    `${name}!! Tu soch raha hai kya karne ka? ${taskName} hai ${timeStr} ko! JA! ABHI JA! 🎭🔥`,
+  ];
+
+  const broEn = [
+    `Bro ${name}, you got ${taskName} at ${timeStr}. Don't be that guy who shows up late! 😎`,
+    `Yo ${name}, heads up - ${taskName} at ${timeStr}. Bros don't forget! Let's roll! 🤙`,
+    `${name} my guy, ${taskName} at ${timeStr}. Time to grind, bro! 💪`,
+  ];
+
+  const formalEn = [
+    `Dear ${name}, this is a reminder that ${taskName} is scheduled for ${timeStr}. Kindly make necessary arrangements. 📋`,
+    `${name}, please note: ${taskName} at ${timeStr}. We expect your timely presence. 📝`,
+  ];
+
+  const wholesomeEn = [
+    `${name}, I'm so proud of how hard you're working! You have ${taskName} at ${timeStr} - keep shining! 🌟`,
+    `Hey ${name}! Just a reminder that you matter. ${taskName} at ${timeStr} - you're going to do amazing! ❤️`,
+    `${name}, the world needs people like you. Now go to ${taskName} at ${timeStr} and be your amazing self! ✨`,
+  ];
+
+  const allMessages: Record<string, string[]> = {
+    funny_en: funnyEn,
+    funny_hinglish: funnyHinglish,
+    motivational_en: motivationalEn,
+    motivational_hinglish: motivationalHinglish,
+    serious_en: seriousEn,
+    caring_en: caringEn,
+    caring_hinglish: caringHinglish,
+    hype_en: hypeEn,
+    hindi_hindi: hindiEn,
+    chill_en: chillEn,
+    dramatic_hinglish: dramaticHinglish,
+    bro_en: broEn,
+    formal_en: formalEn,
+    wholesome_en: wholesomeEn,
+  };
+
+  const key = `${style.voice}_${style.lang}`;
+  const pool = allMessages[key] || funnyEn;
+  return pick(pool);
 }
 
 function getRandomMotivation(userName: string): string {
@@ -524,7 +639,7 @@ export async function POST(request: NextRequest) {
         } else {
           let sent = 0;
           for (const task of user.tasks) {
-            const ok = await sendSMS(getSmartSMS(task.name, task.time, user.nickname || "Sir"));
+            const ok = await sendSMS(await getSmartSMS(task.name, task.time, user.nickname || "Sir"));
             if (ok) sent++;
           }
           await sendTelegram(chatId, `📱 Sent ${sent} SMS to your phone!`);
@@ -552,7 +667,7 @@ export async function POST(request: NextRequest) {
         }
         const task = addTask(chatId, name, time);
         await sendTelegram(chatId, `${task.emoji} ${task.name} added for ${formatTime12(task.time)}! 💪`);
-        await sendSMS(getSmartSMS(task.name, task.time, user.nickname || "Sir"));
+        await sendSMS(await getSmartSMS(task.name, task.time, user.nickname || "Sir"));
         return NextResponse.json({ ok: true });
       }
 
@@ -584,7 +699,7 @@ export async function POST(request: NextRequest) {
         const task = addTask(chatId, detected.name, detected.time);
         const timeStr = formatTime12(detected.time);
         await sendTelegram(chatId, `${task.emoji} Got it, ${user.nickname || "KD"}! ${task.name} at ${timeStr} - reminder set! 💪`);
-        await sendSMS(getSmartSMS(task.name, detected.time, user.nickname || "Sir"));
+        await sendSMS(await getSmartSMS(task.name, detected.time, user.nickname || "Sir"));
         return NextResponse.json({ ok: true });
       }
 
