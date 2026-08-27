@@ -392,13 +392,11 @@ function parseTime(text: string): string | null {
     }
   }
 
-  if (lower.includes("o clock") || lower.includes("oclock")) {
-    const hourMatch = lower.match(/(\d{1,2})\s*o\s*clock/);
-    if (hourMatch) {
-      let hours = parseInt(hourMatch[1]);
-      if (hours >= 1 && hours <= 7) hours += 12;
-      return `${hours.toString().padStart(2, "0")}:00`;
-    }
+  const oClockMatch = lower.match(/(\d{1,2})\s*o[\s']*\s*clock/);
+  if (oClockMatch) {
+    let hours = parseInt(oClockMatch[1]);
+    if (hours >= 1 && hours <= 7) hours += 12;
+    return `${hours.toString().padStart(2, "0")}:00`;
   }
 
   return null;
@@ -412,7 +410,7 @@ function detectTaskFromMessage(message: string): { name: string; time: string } 
   const timePatternsToRemove = [
     /\d{1,2}:\d{2}\s*(am|pm)?/gi,
     /\d{1,2}\s*(am|pm)/gi,
-    /\d{1,2}\s*o\.?\s*clock/gi,
+    /\d{1,2}\s*o[\s']*\s*clock/gi,
   ];
 
   let cleaned = lower;
@@ -424,17 +422,24 @@ function detectTaskFromMessage(message: string): { name: string; time: string } 
     .replace(/\bat\b/gi, "")
     .replace(/\bhave\b/gi, "")
     .replace(/\bhad\b/gi, "")
+    .replace(/\bhas\b/gi, "")
     .replace(/\bneed to\b/gi, "")
     .replace(/\bgotta\b/gi, "")
+    .replace(/\bgoing to\b/gi, "")
+    .replace(/\bwanna\b/gi, "")
+    .replace(/\bwant to\b/gi, "")
     .replace(/\bremind me to\b/gi, "")
     .replace(/\bremind me\b/gi, "")
     .replace(/\bremind\b/gi, "")
     .replace(/\bi have\b/gi, "")
+    .replace(/\bi've\b/gi, "")
     .replace(/\bmy\b/gi, "")
     .replace(/\bthe\b/gi, "")
     .replace(/\ba\b/gi, "")
     .replace(/\ban\b/gi, "")
     .replace(/\bis\b/gi, "")
+    .replace(/\bwas\b/gi, "")
+    .replace(/\bwill be\b/gi, "")
     .replace(/\bcoming up\b/gi, "")
     .replace(/\bstarting\b/gi, "")
     .replace(/\btonight\b/gi, "")
@@ -442,8 +447,20 @@ function detectTaskFromMessage(message: string): { name: string; time: string } 
     .replace(/\bthis morning\b/gi, "")
     .replace(/\bthis afternoon\b/gi, "")
     .replace(/\btomorrow\b/gi, "")
+    .replace(/\btoday\b/gi, "")
+    .replace(/\bclock\b/gi, "")
+    .replace(/\bo'clock\b/gi, "")
+    .replace(/\bplesae\b/gi, "")
     .replace(/\bpleas?e?\b/gi, "")
     .replace(/\bkindly\b/gi, "")
+    .replace(/\bdon't forget\b/gi, "")
+    .replace(/\bdont forget\b/gi, "")
+    .replace(/\bforget not\b/gi, "")
+    .replace(/\bset\b/gi, "")
+    .replace(/\bcreate\b/gi, "")
+    .replace(/\badd\b/gi, "")
+    .replace(/\bmake\b/gi, "")
+    .replace(/\bdo\b/gi, "")
     .trim();
 
   cleaned = cleaned.replace(/\s+/g, " ").trim();
