@@ -369,107 +369,70 @@ RULES:
   }
 }
 
-function parseTime(text: string): string | null {
-  const lower = text.toLowerCase();
+async function extractTaskFromAI(message: string): Promise<{ name: string; time: string } | null> {
+  if (!GROQ_KEY) return null;
 
-  const timePatterns = [
-    /(\d{1,2}):(\d{2})\s*(am|pm)?/i,
-    /(\d{1,2})\s*(am|pm)/i,
-  ];
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content: `You are a task extraction assistant. Given a user message, extract a task name and time from it.
 
-  for (const pattern of timePatterns) {
-    const match = lower.match(pattern);
-    if (match) {
-      let hours = parseInt(match[1]);
-      const minutes = match[2] && !match[2].match(/\D/) ? match[2] : "00";
-      const ampm = match[3] || (match[2] && match[2].match(/am|pm/i) ? match[2] : "");
+RULES:
+- Return ONLY a JSON object: {"task": "task name", "time": "HH:MM"}
+- Time must be in 24-hour format like "09:00", "17:30", "05:00"
+- Task name should be CLEAN - no filler words like "have", "at", "the", "a", "an", "my", "need to", "going to", "remind me", "o'clock", "clock", etc.
+- If the message is NOT about a task/schedule/reminder, return exactly: NOT_TASK
+- If no time is found, return exactly: NO_TIME
+- Examples:
+  "I have bus at 4" → {"task": "bus", "time": "16:00"}
+  "meeting at 5pm" → {"task": "meeting", "time": "17:00"}
+  "english practice at 5 o'clock AM" → {"task": "english practice", "time": "05:00"}
+  "class at 9" → {"task": "class", "time": "21:00"}
+  "remind me to study at 8pm" → {"task": "study", "time": "20:00"}
+  "what is python" → NOT_TASK
+  "hi how are you" → NOT_TASK
+  "gym at 6 in the morning" → {"task": "gym", "time": "06:00"}
+  "I need to cook dinner at 7:30" → {"task": "cook dinner", "time": "19:30"}`
+          },
+          { role: "user", content: message },
+        ],
+        max_tokens: 100,
+        temperature: 0,
+      }),
+    });
 
-      if (ampm.toLowerCase() === "pm" && hours < 12) hours += 12;
-      if (ampm.toLowerCase() === "am" && hours === 12) hours = 0;
-      if (!ampm && hours >= 1 && hours <= 7) hours += 12;
+    const data = await res.json();
+    if (data.choices && data.choices[0]) {
+      let content = data.choices[0].message.content || "";
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
-      return `${hours.toString().padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+      if (content.includes("NOT_TASK")) return null;
+      if (content.includes("NO_TIME")) return null;
+
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.task && parsed.time) {
+            return { name: parsed.task, time: parsed.time };
+          }
+        }
+      } catch {}
     }
+    return null;
+  } catch (e) {
+    console.error("AI task extraction failed:", e);
+    return null;
   }
-
-  const oClockMatch = lower.match(/(\d{1,2})\s*o[\s']*\s*clock/);
-  if (oClockMatch) {
-    let hours = parseInt(oClockMatch[1]);
-    if (hours >= 1 && hours <= 7) hours += 12;
-    return `${hours.toString().padStart(2, "0")}:00`;
-  }
-
-  return null;
-}
-
-function detectTaskFromMessage(message: string): { name: string; time: string } | null {
-  const lower = message.toLowerCase().trim();
-  const time = parseTime(lower);
-  if (!time) return null;
-
-  const timePatternsToRemove = [
-    /\d{1,2}:\d{2}\s*(am|pm)?/gi,
-    /\d{1,2}\s*(am|pm)/gi,
-    /\d{1,2}\s*o[\s']*\s*clock/gi,
-  ];
-
-  let cleaned = lower;
-  for (const p of timePatternsToRemove) {
-    cleaned = cleaned.replace(p, "");
-  }
-
-  cleaned = cleaned
-    .replace(/\bat\b/gi, "")
-    .replace(/\bhave\b/gi, "")
-    .replace(/\bhad\b/gi, "")
-    .replace(/\bhas\b/gi, "")
-    .replace(/\bneed to\b/gi, "")
-    .replace(/\bgotta\b/gi, "")
-    .replace(/\bgoing to\b/gi, "")
-    .replace(/\bwanna\b/gi, "")
-    .replace(/\bwant to\b/gi, "")
-    .replace(/\bremind me to\b/gi, "")
-    .replace(/\bremind me\b/gi, "")
-    .replace(/\bremind\b/gi, "")
-    .replace(/\bi have\b/gi, "")
-    .replace(/\bi've\b/gi, "")
-    .replace(/\bmy\b/gi, "")
-    .replace(/\bthe\b/gi, "")
-    .replace(/\ba\b/gi, "")
-    .replace(/\ban\b/gi, "")
-    .replace(/\bis\b/gi, "")
-    .replace(/\bwas\b/gi, "")
-    .replace(/\bwill be\b/gi, "")
-    .replace(/\bcoming up\b/gi, "")
-    .replace(/\bstarting\b/gi, "")
-    .replace(/\btonight\b/gi, "")
-    .replace(/\bthis evening\b/gi, "")
-    .replace(/\bthis morning\b/gi, "")
-    .replace(/\bthis afternoon\b/gi, "")
-    .replace(/\btomorrow\b/gi, "")
-    .replace(/\btoday\b/gi, "")
-    .replace(/\bclock\b/gi, "")
-    .replace(/\bo'clock\b/gi, "")
-    .replace(/\bplesae\b/gi, "")
-    .replace(/\bpleas?e?\b/gi, "")
-    .replace(/\bkindly\b/gi, "")
-    .replace(/\bdon't forget\b/gi, "")
-    .replace(/\bdont forget\b/gi, "")
-    .replace(/\bforget not\b/gi, "")
-    .replace(/\bset\b/gi, "")
-    .replace(/\bcreate\b/gi, "")
-    .replace(/\badd\b/gi, "")
-    .replace(/\bmake\b/gi, "")
-    .replace(/\bdo\b/gi, "")
-    .trim();
-
-  cleaned = cleaned.replace(/\s+/g, " ").trim();
-
-  if (cleaned.length > 1 && cleaned.length < 50) {
-    return { name: cleaned, time };
-  }
-
-  return null;
 }
 
 function smartReply(message: string, user: UserData): string {
@@ -711,7 +674,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      const detected = detectTaskFromMessage(text);
+      const detected = await extractTaskFromAI(text);
       if (detected) {
         const task = addTask(chatId, detected.name, detected.time);
         const timeStr = formatTime12(detected.time);
